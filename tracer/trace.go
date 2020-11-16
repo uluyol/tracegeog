@@ -135,7 +135,7 @@ func (t *NodeTracer) Find() {
 	heap.Init(&h)
 
 	t.log("%d candidate nodes; selecting best", h.Len())
-	for len(t.g.Nodes) <= nc.MaxCount && h.Len() > 0 && h[0].score > nc.StrengthThreshold {
+	for len(t.g.Nodes) < nc.MaxCount && h.Len() > 0 && h[0].score > nc.StrengthThreshold {
 		top := &h[0]
 		score := nc.Matcher.MatchStrength(top.x, top.y, t.im)
 		if top.score != score {
