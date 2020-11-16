@@ -28,6 +28,7 @@ type WebMercator struct {
 	ExtraMargin struct {
 		Left, Right int
 	}
+	ScaleY         float64
 	PrimeMeridianX int // after adding extra margin
 	EquatorY       int
 }
@@ -44,7 +45,7 @@ func (w *WebMercator) ToLatLon(p image.Point) LatLon {
 	x := float64(p.X - w.Bounds.Min.X - w.PrimeMeridianX)
 
 	// y goes down, so invert to get lon
-	y := float64(w.EquatorY - (p.Y - w.Bounds.Min.Y))
+	y := float64(w.EquatorY-(p.Y-w.Bounds.Min.Y)) * w.ScaleY
 
 	c := w.scalingFactor()
 

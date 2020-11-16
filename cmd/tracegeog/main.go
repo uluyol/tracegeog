@@ -145,6 +145,7 @@ type Unproj struct {
 	ExtraMargin struct {
 		Left, Right int
 	}
+	ScaleY         float64
 	PrimeMeridianX int // after adding extra margin
 	EquatorY       int
 }
@@ -161,6 +162,7 @@ func (c *Unproj) SetFlags(fs *flag.FlagSet) {
 		"map projection to invert (web-mercator)")
 	fs.IntVar(&c.ExtraMargin.Left, "extra-margin-left", 0, "margin to add to the left")
 	fs.IntVar(&c.ExtraMargin.Right, "extra-margin-right", 0, "margin to add to the left")
+	fs.Float64Var(&c.ScaleY, "scale-y", 1, "multiply y-values by this before converting")
 	fs.IntVar(&c.PrimeMeridianX, "prime-meridian-x", -1,
 		"prime meridian x value after adding margins (leave -1 to use image center)")
 	fs.IntVar(&c.EquatorY, "equator-y", -1,
@@ -277,6 +279,7 @@ func (c *Unproj) Execute(ctx context.Context, fs *flag.FlagSet, args ...interfac
 
 	wm := unproject.WebMercator{
 		Bounds:         g.Bounds,
+		ScaleY:         c.ScaleY,
 		PrimeMeridianX: c.PrimeMeridianX,
 		EquatorY:       c.EquatorY,
 	}
