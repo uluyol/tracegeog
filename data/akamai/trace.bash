@@ -36,15 +36,20 @@ set -e
 #     -overlaypng overlayed.png
 
 # Invert projected data to lat, lon pairs
-../../tracegeog unproj \
-    -g xygraph-manual-links.json \
-    -extra-margin-left 760 \
-    -prime-meridian-x 1290 \
-    -equator-y 830 \
-    -scale-y 0.93 \
-    -o geograph-manual-links.json
+# ../../tracegeog unproj \
+#     -g xygraph-manual-links.json \
+#     -extra-margin-left 760 \
+#     -prime-meridian-x 1290 \
+#     -equator-y 830 \
+#     -scale-y 0.93 \
+#     -o geograph-manual-links.json
 
 # Replot on map to compare against source data
-../../scripts/plotgeo.py \
-    geograph-manual-links.json \
-    redrawn.pdf
+# ../../scripts/plotgeo.py \
+#     geograph-manual-links.json \
+#     redrawn.pdf
+
+# Export to Repetita
+../../tracegeog export-repetita \
+    -g geograph-manual-links.json \
+    -o Traced_Akamai.graph
