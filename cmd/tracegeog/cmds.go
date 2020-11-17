@@ -1,68 +1,20 @@
 package main
 
 import (
+	"bufio"
 	"context"
-	"encoding/json"
 	"flag"
-	"fmt"
-	"image"
-	"image/color"
 	_ "image/jpeg"
-	"image/png"
 	_ "image/png"
 	"log"
 	"os"
 
 	"github.com/google/subcommands"
+	"github.com/uluyol/tracegeog/conversion/repetita"
 	"github.com/uluyol/tracegeog/tracer"
 	"github.com/uluyol/tracegeog/unproject"
 	"github.com/uluyol/tracegeog/visualize"
 )
-
-type ImageReadingCmd struct {
-	InputPath string
-	im        image.Image
-}
-
-type GraphReadingCmd struct {
-	InputGraph string
-	graph      tracer.XYGraph
-}
-
-type GraphWritingCmd struct{ OutputPath string }
-
-func (c *ImageReadingCmd) SetFlags(fs *flag.FlagSet) {
-	fs.StringVar(&c.InputPath, "i", "", "path to input image (png or jpeg)")
-}
-
-func (c *GraphReadingCmd) SetFlags(fs *flag.FlagSet) {
-	fs.StringVar(&c.InputGraph, "g", "", "path to input graph")
-}
-
-func (c *GraphWritingCmd) SetFlags(fs *flag.FlagSet) {
-	fs.StringVar(&c.OutputPath, "o", "", "path to output json")
-}
-
-func (c *ImageReadingCmd) Prepare() {
-	im, err := readImage(c.InputPath)
-	if err != nil {
-		log.Fatalf("unable to read input: %v", err)
-	}
-	c.im = im
-}
-
-func (c *GraphReadingCmd) Prepare() {
-	f, err := os.Open(c.InputGraph)
-	if err != nil {
-		log.Fatalf("unable to open input graph %s: %v",
-			c.InputGraph, err)
-	}
-	dec := json.NewDecoder(f)
-	if err := dec.Decode(&c.graph); err != nil {
-		log.Fatalf("failed to read input graph: %v", err)
-	}
-	f.Close() // non-fatal if errors
-}
 
 type TraceNodes struct {
 	ImageReadingCmd
@@ -169,33 +121,28 @@ func (c *Unproj) SetFlags(fs *flag.FlagSet) {
 		"equator y value (leave -1 to use image center)")
 }
 
-func readImage(p string) (image.Image, error) {
-	f, err := os.Open(p)
-	if err != nil {
-		return nil, err
-	}
-	im, _, err := image.Decode(f)
-	if err != nil {
-		return nil, err
-	}
-	return im, f.Close()
+type ExportRepetita struct {
+	GeoGraphReadingCmd
+
+	OutputPath      string
+	RefractiveIndex float64
+	MakeSymmetric   bool
 }
 
-func parseHexColor(s string) (c color.RGBA, err error) {
-	c.A = 0xff
-	switch len(s) {
-	case 7:
-		_, err = fmt.Sscanf(s, "#%02x%02x%02x", &c.R, &c.G, &c.B)
-	case 4:
-		_, err = fmt.Sscanf(s, "#%1x%1x%1x", &c.R, &c.G, &c.B)
-		// Double the hex digits:
-		c.R *= 17
-		c.G *= 17
-		c.B *= 17
-	default:
-		err = fmt.Errorf("invalid length, must be 7 or 4")
-	}
-	return
+func (c *ExportRepetita) Name() string     { return "export-repetita" }
+func (c *ExportRepetita) Synopsis() string { return "export to repetita format" }
+func (c *ExportRepetita) Usage() string    { return c.Synopsis() + "\n" }
+
+func (c *ExportRepetita) SetFlags(fs *flag.FlagSet) {
+	c.GeoGraphReadingCmd.SetFlags(fs)
+
+	fs.StringVar(&c.OutputPath, "o", "", "path to export graph")
+	fs.Float64Var(&c.RefractiveIndex, "refractive-index",
+		repetita.DefaultExporter.RefractiveIndex,
+		"speed of light in vacuum / speed of light in fiber")
+	fs.BoolVar(&c.MakeSymmetric, "make-sym",
+		repetita.DefaultExporter.MakeSymmetric,
+		"if true, will make links symmetric")
 }
 
 func (c *TraceNodes) Execute(ctx context.Context, fs *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
@@ -301,32 +248,30 @@ func (c *Unproj) Execute(ctx context.Context, fs *flag.FlagSet, args ...interfac
 	return subcommands.ExitSuccess
 }
 
-func writeGraphTo(graph interface{}, p string) error {
-	log.Printf("writing graph to %s", p)
+func (c *ExportRepetita) Execute(ctx context.Context, fs *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	c.GeoGraphReadingCmd.Prepare()
 
-	f, err := os.Create(p)
+	e := repetita.Exporter{
+		RefractiveIndex: c.RefractiveIndex,
+		MakeSymmetric:   c.MakeSymmetric,
+	}
+
+	f, err := os.Create(c.OutputPath)
+	bw := bufio.NewWriter(f)
 	if err != nil {
-		return err
+		log.Fatalf("failed to create output file %s: %v", c.OutputPath, err)
 	}
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
-	if err := enc.Encode(graph); err != nil {
-		return err
+	err = e.WriteGeo(&c.graph, bw)
+	if err == nil {
+		err = bw.Flush()
 	}
-	return f.Close()
-}
-
-func writePngTo(im image.Image, p string) error {
-	log.Printf("writing image to %s", p)
-
-	f, err := os.Create(p)
+	if err == nil {
+		err = f.Close()
+	}
 	if err != nil {
-		return err
+		log.Fatalf("failed to write output: %v", err)
 	}
-	if err := png.Encode(f, im); err != nil {
-		return err
-	}
-	return f.Close()
+	return subcommands.ExitSuccess
 }
 
 func main() {
@@ -337,6 +282,7 @@ func main() {
 	subcommands.Register(&TraceLinks{}, "")
 	subcommands.Register(&Vis{}, "")
 	subcommands.Register(&Unproj{}, "")
+	subcommands.Register(&ExportRepetita{}, "")
 
 	flag.Parse()
 
