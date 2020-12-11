@@ -45,10 +45,19 @@ func (e *Exporter) WriteGeo(g *unproject.GeoGraph, w io.Writer) error {
 		}
 	}
 
+	isTransit := make(map[int]bool)
+	for _, n := range g.TransitOnly {
+		isTransit[n] = true
+	}
+
 	writef("NODES %d\n", len(g.Nodes))
 	writef("label x y\n")
 	for i := range g.Nodes {
-		writef("node_%d 0 0\n", i)
+		name := "node"
+		if isTransit[i] {
+			name = "transit"
+		}
+		writef("%s_%d 0 0\n", name, i)
 	}
 
 	links := g.Links

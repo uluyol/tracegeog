@@ -23,6 +23,10 @@ type TraceNodes struct {
 	NodeIconPath      string
 	NodeColorAccuracy float64
 	MaxNodeCount      int
+
+	TransitNodeIconPath      string
+	TransitNodeColorAccuracy float64
+	MaxTransitNodeCount      int
 }
 
 func (c *TraceNodes) Name() string     { return "trace-nodes" }
@@ -33,10 +37,13 @@ func (c *TraceNodes) SetFlags(fs *flag.FlagSet) {
 	c.ImageReadingCmd.SetFlags(fs)
 	c.GraphWritingCmd.SetFlags(fs)
 
-	fs.StringVar(&c.NodeIconPath, "icon", "", "path to not icon image (png or jpeg)")
+	fs.StringVar(&c.NodeIconPath, "icon", "", "path to node icon image (png or jpeg)")
 	fs.Float64Var(&c.NodeColorAccuracy, "node-color-accuracy", 0.8, "minimum node color accuracy")
 	fs.IntVar(&c.MaxNodeCount, "max-node-count", 0, "max node count (prunes if more than this are availabe)")
 
+	fs.StringVar(&c.TransitNodeIconPath, "transit-icon", "", "path to transit icon (png or jpeg; optional)")
+	fs.Float64Var(&c.TransitNodeColorAccuracy, "transit-color-accuracy", 0.8, "minimum transit node color accuracy")
+	fs.IntVar(&c.MaxTransitNodeCount, "max-transit-count", 0, "max transit node count (prunes if more than this are available)")
 }
 
 type TraceLinks struct {
@@ -153,14 +160,30 @@ func (c *TraceNodes) Execute(ctx context.Context, fs *flag.FlagSet, args ...inte
 		log.Fatalf("unable to read icon: %v", err)
 	}
 
-	tracer := tracer.NewNode(tracer.NodeConfig{
+	tr := tracer.NewNode(tracer.NodeConfig{
 		Matcher:           tracer.NewIconMatcher(icon),
 		StrengthThreshold: c.NodeColorAccuracy,
 		MaxCount:          c.MaxNodeCount,
 	}, c.im, log.Printf)
 
-	tracer.Find()
-	graph := tracer.Graph()
+	tr.Find()
+	graph := tr.Graph()
+
+	if c.TransitNodeIconPath != "" {
+		transitIcon, err := readImage(c.TransitNodeIconPath)
+		if err != nil {
+			log.Fatalf("unable to read transit node icon: %v", err)
+		}
+
+		tr2 := tracer.NewNode(tracer.NodeConfig{
+			Matcher:           tracer.NewIconMatcher(transitIcon),
+			StrengthThreshold: c.TransitNodeColorAccuracy,
+			MaxCount:          c.MaxTransitNodeCount,
+		}, tr.Image(), log.Printf)
+
+		tr2.Find()
+		graph.AddAsTransitOnly(tr2.Graph())
+	}
 
 	if err := writeGraphTo(graph, c.OutputPath); err != nil {
 		log.Fatalf("unable to write output json file %s: %v",

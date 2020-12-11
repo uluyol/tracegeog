@@ -23,9 +23,11 @@ func DrawGraph(g *tracer.XYGraph) image.Image {
 		Size: 12,
 	}))
 
-	nodeColor := color.RGBA{255, 165, 0, 255}    // orange
-	lineColor := color.RGBA{50, 200, 10, 255}    // green
-	nodeLabelColor := color.RGBA{255, 0, 0, 255} // red
+	nodeColor := color.RGBA{255, 165, 0, 255}       // orange
+	transitColor := color.RGBA{100, 80, 230, 255}   // blue
+	lineColor := color.RGBA{50, 200, 10, 255}       // green
+	nodeLabelColor := color.RGBA{255, 0, 0, 255}    // red
+	transitLabelColor := color.RGBA{0, 0, 255, 255} // blue
 
 	ctx.SetColor(lineColor)
 	ctx.SetLineWidth(3)
@@ -51,7 +53,23 @@ func DrawGraph(g *tracer.XYGraph) image.Image {
 		}
 	}
 
+	isTransit := make(map[int]bool)
+
+	for _, ni := range g.TransitOnly {
+		isTransit[ni] = true
+		x := float64(g.Nodes[ni].X)
+		y := float64(g.Nodes[ni].Y)
+		ctx.SetColor(transitColor)
+		ctx.DrawCircle(x, y, 10)
+		ctx.Fill()
+		ctx.SetColor(transitLabelColor)
+		ctx.DrawStringAnchored(strconv.Itoa(ni), x, y-1, 0.5, 0.5)
+	}
+
 	for i, n := range g.Nodes {
+		if isTransit[i] {
+			continue
+		}
 		x := float64(n.X)
 		y := float64(n.Y)
 		ctx.SetColor(nodeColor)

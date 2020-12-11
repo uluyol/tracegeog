@@ -15,8 +15,9 @@ type Link struct {
 }
 
 type GeoGraph struct {
-	Nodes []LatLon
-	Links []Link
+	Nodes       []LatLon
+	TransitOnly []int // indices of nodes that are transit-only
+	Links       []Link
 }
 
 type InversionFunc = func(image.Point) LatLon
@@ -27,6 +28,7 @@ func ToGeoGraph(g *tracer.XYGraph, invertFn InversionFunc) *GeoGraph {
 	for i, n := range g.Nodes {
 		geo.Nodes[i] = invertFn(n)
 	}
+	geo.TransitOnly = append([]int(nil), g.TransitOnly...)
 	geo.Links = make([]Link, len(g.Links))
 	for i, l := range g.Links {
 		geo.Links[i] = Link{Src: l.Src, Dst: l.Dst}

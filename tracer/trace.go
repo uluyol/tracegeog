@@ -67,10 +67,19 @@ type Link struct {
 //
 // X values range from 0 to RectMax.X and Y values range from 0 to RectMax.Y.
 type XYGraph struct {
-	Nodes []image.Point
-	Links []Link
+	Nodes       []image.Point
+	TransitOnly []int // Indices of nodes that are transit-only
+	Links       []Link
 
 	Bounds image.Rectangle
+}
+
+func (g *XYGraph) AddAsTransitOnly(g2 *XYGraph) {
+	start := len(g.Nodes)
+	g.Nodes = append(g.Nodes, g2.Nodes...)
+	for i := start; i < len(g.Nodes); i++ {
+		g.TransitOnly = append(g.TransitOnly, i)
+	}
 }
 
 type nodeCand struct {
@@ -158,6 +167,12 @@ func (t *NodeTracer) Find() {
 	})
 
 	t.log("found %d nodes", len(t.g.Nodes))
+}
+
+func (t *NodeTracer) Image() image.Image {
+	i := t.im
+	i.Pix = append([]uint8(nil), t.im.Pix...)
+	return i
 }
 
 func (t *LinkTracer) Find() {
